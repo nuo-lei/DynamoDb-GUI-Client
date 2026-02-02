@@ -1,6 +1,6 @@
+import { RootState } from '@/store/types';
 import { GetterTree } from 'vuex';
 import { DatabaseModuleState } from './types';
-import { RootState } from '@/store/types';
 
 const validateForm = (state: DatabaseModuleState) => {
   const obj: any = state.submitForm.configs;
