@@ -10,6 +10,8 @@
     "build": "vue-cli-service build",
     "lint": "vue-cli-service lint",
     "electron:build": "vue-cli-service electron:build",
+    "electron:build:dmg": "vue-cli-service electron:build --mac dmg",
+    "dmg:raw": "yarn electron:build && hdiutil create -volname DynamoDbGUI -srcfolder dist_electron/mac -ov -format UDZO dist_electron/DynamoDbGUI-mac-3.3.1.raw.dmg",
     "electron:serve": "vue-cli-service electron:serve",
     "postinstall": "electron-builder install-app-deps",
     "start": "vue-cli-service serve --port 5000 --open",
