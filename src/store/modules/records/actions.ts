@@ -1,7 +1,7 @@
-import { ActionTree, ActionContext } from 'vuex';
-import { RecordModuleState } from './types';
 import { RootState } from '@/store/types';
-import { ScanInput, PutItemInput, GetItemInput, DeleteItemInput } from 'aws-sdk/clients/dynamodb';
+import { DeleteItemInput, GetItemInput, PutItemInput, ScanInput } from 'aws-sdk/clients/dynamodb';
+import { ActionContext, ActionTree } from 'vuex';
+import { RecordModuleState } from './types';
 
 /* Format to create 50 rows */
 // let Item;
@@ -172,9 +172,10 @@ async function getRecords(
   commit('loading', true, { root: true });
   let data;
   try {
+    const { TableName: _ignored, ...restParams } = (params as any) || {};
     data = await dbClient
       .scan({
-        TableName: currentTable,
+        ...restParams,
         Limit: state.limit,
         ExclusiveStartKey: state.evaluatedKeys[state.lastEvaluatedKeyIndex - 1],
         FilterExpression:
@@ -186,7 +187,7 @@ async function getRecords(
           [':' + state.filterParams.filterColumn + '1']: state.filterParams
             .filterValue,
         },
-        ...params,
+        TableName: currentTable,
       })
       .promise();
   } catch (err) {

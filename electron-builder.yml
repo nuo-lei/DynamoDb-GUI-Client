@@ -9,16 +9,10 @@ files:
   - "!**/{.DS_Store,.git,.hg,.svn,CVS,RCS,SCCS,__pycache__,thumbs.db,.gitignore,.gitattributes,.editorconfig,.flowconfig,.yarn-metadata.json,.idea,appveyor.yml,.travis.yml,circle.yml,npm-debug.log,.nyc_output,yarn.lock,.yarn-integrity}"
 asar: true
 compression: normal
-dmg:
+mac:
   icon: "public/icon.icns"
-  contents:
-    - x: 532
-      y: 249
-      type: link
-      path: /Applications
-    - x: 281
-      y: 249
-      type: file
+  target:
+    - zip
 linux:
   description: "DynamoDb GUI Client"
   target:
