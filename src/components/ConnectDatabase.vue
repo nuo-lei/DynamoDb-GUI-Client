@@ -16,6 +16,8 @@
             el-input(v-model="configs.secretAccessKey" :type="inputType" placeholder="AWS secret access key")
               template(slot="append")
                 el-button(icon="el-icon-view" @click="showSecretKey")
+          el-form-item(label="Session Token (Optional)")
+            el-input(v-model="configs.sessionToken" placeholder="AWS session token")
         ActionButtons(
           :cancelHandler="setToDefault"
           :confirmHandler="submitRemoteForm"
@@ -39,6 +41,8 @@
             el-input(v-model="submitForm.configs.secretAccessKey" :type="inputType" placeholder="AWS secret access key")
               template(slot="append")
                 el-button(icon="el-icon-view" @click="showSecretKey")
+          el-form-item(label="Session Token (Optional)")
+            el-input(v-model="submitForm.configs.sessionToken" placeholder="AWS session token")
         ActionButtons(
           :cancelHandler="setToDefault"
           :confirmHandler="submitLocalForm"

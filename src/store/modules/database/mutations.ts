@@ -5,6 +5,7 @@ function setToDefault(state: DatabaseModuleState) {
   state.submitForm.configs = {
     accessKeyId: '',
     secretAccessKey: '',
+    sessionToken: '',
     region: '',
     endpoint: 'http://localhost:',
     maxRetries: 1,

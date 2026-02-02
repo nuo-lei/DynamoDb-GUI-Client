@@ -28,6 +28,7 @@ const state: DatabaseModuleState = {
     configs: {
       accessKeyId: '',
       secretAccessKey: '',
+      sessionToken: '',
       region: '',
       endpoint: '',
       maxRetries: 1,
