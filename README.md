@@ -10,17 +10,9 @@ Sincerely yours [Arattian::LinkedIn](https://www.linkedin.com/in/misakpoghosyan/
 
 [![GitHub](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/Arattian/DynamoDb-GUI-Client/blob/master/LICENSE)
 
-### [Release v3.3.1](https://github.com/Arattian/DynamoDb-GUI-Client/releases/tag/3.3.1)
+### [Release v3.3.1](https://github.com/nuo-lei/DynamoDb-GUI-Client/releases/tag/v0.3)
 
-#### [Download for MacOS (.dmg)](https://github.com/Arattian/DynamoDb-GUI-Client/releases/download/3.3.1/DynamoDbGUI-mac-3.3.1.dmg)
-
-#### [Download for MacOS (.zip)](https://github.com/Arattian/DynamoDb-GUI-Client/releases/download/3.3.1/DynamoDbGUI-mac-3.3.1.zip)
-
-### [Release v2.1.1 || Old UI](https://github.com/Arattian/DynamoDb-GUI-Client/releases/tag/v2.1.1)
-
-#### [Download for Debian (.deb)](https://github.com/Arattian/DynamoDb-GUI-Client/releases/download/v2.1.1/DynamoDbGUI-linux-amd64-2.1.1.deb)
-
-#### [Download for Linux (.AppImage)](https://github.com/Arattian/DynamoDb-GUI-Client/releases/download/v2.1.1/DynamoDbGUI-linux-x86_64-2.1.1.AppImage)
+#### [Download for MacOS (.dmg)](https://github.com/nuo-lei/DynamoDb-GUI-Client/releases/download/v0.3/DynamoDbGUI-mac-x64-3.3.1.dmg)
 
 ![Logo](src/assets/git-logo.png)
 
