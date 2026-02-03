@@ -32,15 +32,19 @@
                 el-input(placeholder="Database display name" v-model="submitForm.name")
                   template(slot="append")
                     el-color-picker(v-model="submitForm.color" size="mini")
-              el-form-item(label="SSO Region" required)
-                el-select(v-model="submitForm.configs.ssoRegion" placeholder="SSO Region")
-                  el-option(v-for="(region, index) in regionList" :key="index" :label="region" :value="region")
-              el-form-item(label="SSO Start URL" required)
-                el-input(v-model="submitForm.configs.ssoStartUrl" placeholder="e.g. https://d-xxxxxxxx.awsapps.com/start")
-              el-form-item(label="SSO Account ID" required)
-                el-input(v-model="submitForm.configs.ssoAccountId" placeholder="AWS Account ID")
-              el-form-item(label="SSO Role Name" required)
-                el-input(v-model="submitForm.configs.ssoRoleName" placeholder="Role name")
+              el-form-item(label="SSO Profile" required)
+                template(v-if="ssoProfiles.length")
+                  el-select(v-model="submitForm.configs.ssoProfile" placeholder="Choose SSO Profile")
+                    el-option(v-for="(p, index) in ssoProfiles" :key="index" :label="profileLabel(p)" :value="p.name")
+                template(v-else)
+                  el-input(v-model="submitForm.configs.ssoProfile" placeholder="Profile name in ~/.aws/config")
+              el-form-item(label="Profile Details" v-if="selectedProfile")
+                div
+                  p 名称：{{ selectedProfile.name }}
+                  p 区域：{{ selectedProfile.region || selectedProfile.ssoRegion || '-' }}
+                  p Start URL：{{ selectedProfile.ssoStartUrl || '-' }}
+                  p 账号：{{ selectedProfile.ssoAccountId || '-' }}
+                  p 权限集：{{ selectedProfile.ssoRoleName || '-' }}
             ActionButtons(
               :cancelHandler="setToDefault"
               :confirmHandler="submitRemoteSso"
@@ -86,6 +90,7 @@ export default class ConnectDatabase extends Vue {
 
   private mounted() {
     this.setToDefault();
+    this.loadSsoProfiles();
   }
   private showSecretKey() {
     if (this.inputType === 'password') {
@@ -101,6 +106,41 @@ export default class ConnectDatabase extends Vue {
   private submitRemoteSso() {
     this.submitForm.authMethod = 'sso';
     this.submitRemoteForm();
+  }
+  private ssoProfiles: Array<{ name: string; region?: string; ssoStartUrl?: string; ssoRegion?: string; ssoAccountId?: string; ssoRoleName?: string; }> = [];
+  private getIpc(): any {
+    try {
+      if (typeof window !== 'undefined' && (window as any).ipcRenderer) {
+        return (window as any).ipcRenderer;
+      }
+      // eslint-disable-next-line no-eval
+      const req = typeof window !== 'undefined' && (window as any).require
+        ? (window as any).require
+        : eval('require');
+      return req('electron').ipcRenderer;
+    } catch {
+      return null;
+    }
+  }
+  private async loadSsoProfiles() {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    try {
+      const res = await ipc.invoke('sso-list-profiles');
+      if (res && res.ok && Array.isArray(res.profiles)) {
+        this.ssoProfiles = res.profiles;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  private profileLabel(p: any): string {
+    const r = p.region || p.ssoRegion || '';
+    return r ? `${p.name} (${r})` : p.name;
+  }
+  private get selectedProfile(): any {
+    const name = (this.submitForm && this.submitForm.configs && this.submitForm.configs.ssoProfile) || '';
+    return this.ssoProfiles.find((p) => p.name === name) || null;
   }
 }
 </script>

@@ -6,17 +6,15 @@ const validateForm = (state: DatabaseModuleState) => {
   const method = state.submitForm.authMethod || 'keys';
   const cfg: any = state.submitForm.configs;
   if (method === 'sso') {
-    const required = ['ssoStartUrl', 'ssoRegion', 'ssoAccountId', 'ssoRoleName'];
-    for (const k of required) {
-      if (!cfg[k]) {
-        return;
-      }
+    // Only require SSO profile name when using profile-based SSO
+    if (!cfg.ssoProfile) {
+      return;
     }
     return true;
   } else {
     for (const key in cfg) {
       if (!cfg[key] && key !== 'dynamoDbCrc32' && key !== 'sessionToken' &&
-          key !== 'ssoStartUrl' && key !== 'ssoRegion' && key !== 'ssoAccountId' && key !== 'ssoRoleName') {
+          key !== 'ssoStartUrl' && key !== 'ssoRegion' && key !== 'ssoAccountId' && key !== 'ssoRoleName' && key !== 'ssoProfile') {
         return;
       }
     }

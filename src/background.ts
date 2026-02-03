@@ -1,17 +1,22 @@
-import { app, protocol, BrowserWindow, shell, Menu, ipcMain } from 'electron';
+import { execFile } from 'child_process';
+import { BrowserWindow, Menu, app, ipcMain, protocol, shell } from 'electron';
 import defaultMenu from 'electron-default-menu';
-import {
-  createProtocol,
-  installVueDevtools,
-} from 'vue-cli-plugin-electron-builder/lib';
+import * as path from 'path';
+import { createProtocol } from 'vue-cli-plugin-electron-builder/lib';
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
 let win: any;
 
-// Standard scheme must be registered before the app is ready
-protocol.registerStandardSchemes(['app'], { secure: true });
+// Register custom scheme for production loading
+// Electron >=5 uses registerSchemesAsPrivileged
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: { secure: true, standard: true },
+  },
+]);
 function createWindow() {
   // Create the browser window.
   win = new BrowserWindow({
@@ -19,6 +24,13 @@ function createWindow() {
     height: 900,
     center: true,
     show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      preload: isDevelopment
+        ? path.join(process.cwd(), 'src/preload.js')
+        : path.join(__dirname, 'preload.js'),
+    },
   });
   win.once('ready-to-show', () => {
     win.show();
@@ -64,41 +76,72 @@ app.on('ready', async () => {
   const menu = defaultMenu(app, shell);
   delete menu[2];
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu));
-  if (isDevelopment && !process.env.IS_TEST) {
-    // Install Vue Devtools
-    await installVueDevtools();
-  }
   createWindow();
-  // IPC: Handle SSO credential fetch and connectivity check in main process
-  ipcMain.handle('sso-connect', async (_event, params: {
-    ssoStartUrl: string;
-    ssoRegion: string;
-    ssoAccountId: string;
-    ssoRoleName: string;
-    region?: string;
-  }) => {
-    try {
-      // Use CommonJS build to avoid ESM parsing issues
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { fromSSO } = require('@aws-sdk/credential-provider-sso/dist-cjs/index.js');
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const DynamoDB = require('aws-sdk/clients/dynamodb');
-      const provider = fromSSO({
-        ssoStartUrl: params.ssoStartUrl,
-        ssoRegion: params.ssoRegion,
-        ssoAccountId: params.ssoAccountId,
-        ssoRoleName: params.ssoRoleName,
-      });
-      const credentials = await provider();
-      const connRegion = params.region || params.ssoRegion;
-      const db = new DynamoDB({ region: connRegion, credentials });
-      await db.listTables().promise();
-      return { ok: true, credentials, region: connRegion };
-    } catch (err) {
-      const message = (err && err.message) ? err.message : 'SSO 连接失败';
-      return { ok: false, error: message };
-    }
-  });
+    // SSO: Profile-based login and connect
+    ipcMain.handle('sso-list-profiles', async () => {
+      try {
+        const { loadSharedConfigFiles } = (eval('require')('@aws-sdk/shared-ini-file-loader') as any);
+        const shared = await loadSharedConfigFiles();
+        const configFile = shared.configFile || {};
+        const credentialsFile = shared.credentialsFile || {};
+        const names = new Set<string>([...Object.keys(configFile), ...Object.keys(credentialsFile)]);
+        const profiles = Array.from(names).map((name) => {
+          const p = (configFile as any)[name] || {};
+          const c = (credentialsFile as any)[name] || {};
+          return {
+            name,
+            region: p.region || c.region,
+            ssoStartUrl: p.sso_start_url || p.ssoStartUrl,
+            ssoRegion: p.sso_region || p.ssoRegion,
+            ssoAccountId: p.sso_account_id || p.ssoAccountId,
+            ssoRoleName: p.sso_role_name || p.ssoRoleName,
+          };
+        });
+        return { ok: true, profiles };
+      } catch (err) {
+        const e: any = err;
+        return { ok: false, error: (e && e.message) ? e.message : '无法读取 AWS 配置文件（~/.aws/config 或 ~/.aws/credentials）' };
+      }
+    });
+    ipcMain.handle('sso-connect-profile', async (_event: any, params: { profile: string; region?: string }) => {
+      const profile = params.profile;
+      if (!profile) return { ok: false, error: '请填写 SSO Profile 名称' };
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const child = execFile('aws', ['sso', 'login', '--profile', profile], { env: process.env }, (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          });
+          // Optional: surface errors
+          child.on('error', reject);
+        });
+      } catch (loginErr) {
+        const e: any = loginErr;
+        const msg = (e && e.message) ? e.message : 'aws sso login 执行失败';
+        return { ok: false, error: msg };
+      }
+      try {
+        const { fromIni } = (eval('require')('@aws-sdk/credential-providers') as any);
+        const { loadSharedConfigFiles } = (eval('require')('@aws-sdk/shared-ini-file-loader') as any);
+        const iniProvider = fromIni({ profile });
+        const credentials = await iniProvider();
+        // infer region from profile config if available
+        let connRegion = params.region || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION || '';
+        try {
+          const shared = await loadSharedConfigFiles();
+          const cfg = (shared.configFile as any) || {};
+          const p = cfg[profile] || {};
+          connRegion = connRegion || p.region || p.sso_region || p.ssoRegion || 'us-east-1';
+        } catch {}
+        const DynamoDB = eval('require')('aws-sdk/clients/dynamodb');
+        const db = new DynamoDB({ region: connRegion, credentials });
+        await db.listTables().promise();
+        return { ok: true, credentials, region: connRegion, profile };
+      } catch (err) {
+        const e: any = err;
+        return { ok: false, error: (e && e.message) ? e.message : 'SSO Profile 连接失败' };
+      }
+    });
 });
 
 // Exit cleanly on request from parent process in development mode.

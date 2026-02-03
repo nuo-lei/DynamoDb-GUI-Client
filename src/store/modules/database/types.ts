@@ -34,4 +34,6 @@ export interface DbConfigs {
   ssoRegion?: string;
   ssoAccountId?: string;
   ssoRoleName?: string;
+  // New: profile-based SSO
+  ssoProfile?: string;
 }

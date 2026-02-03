@@ -37,6 +37,7 @@ const state: DatabaseModuleState = {
       ssoRegion: '',
       ssoAccountId: '',
       ssoRoleName: '',
+      ssoProfile: '',
     },
     name: '',
     color: '#00f97c',
