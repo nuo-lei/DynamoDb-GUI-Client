@@ -18,6 +18,7 @@ export interface SubmitForm {
   name: string;
   color: string;
   createdAt: number;
+  authMethod: 'keys' | 'sso';
 }
 
 export interface DbConfigs {
@@ -28,4 +29,9 @@ export interface DbConfigs {
   endpoint: string;
   maxRetries: number;
   dynamoDbCrc32: boolean;
+  // SSO-specific optional fields
+  ssoStartUrl?: string;
+  ssoRegion?: string;
+  ssoAccountId?: string;
+  ssoRoleName?: string;
 }

@@ -1,7 +1,10 @@
-import { ActionTree, ActionContext } from 'vuex';
-import { DatabaseModuleState } from './types';
 import { RootState } from '@/store/types';
 import DynamoDB from 'aws-sdk/clients/dynamodb';
+// Access Electron's ipcRenderer from the renderer process
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { ipcRenderer } = require('electron');
+import { ActionContext, ActionTree } from 'vuex';
+import { DatabaseModuleState } from './types';
 
 function removeDbFromStorage(
   { commit, dispatch }: ActionContext<DatabaseModuleState, RootState>,
@@ -22,6 +25,37 @@ async function setCredentials({
   const database = state.submitForm;
   if (!getters.validateForm) {
     return;
+  }
+  // For SSO auth method, connection check via AWS SDK v2 is not implemented here.
+  // Implement SSO connectivity via Electron IPC to main process
+  if (database.authMethod === 'sso') {
+    try {
+      const result = await ipcRenderer.invoke('sso-connect', {
+        ssoStartUrl: database.configs.ssoStartUrl!,
+        ssoRegion: database.configs.ssoRegion!,
+        ssoAccountId: database.configs.ssoAccountId!,
+        ssoRoleName: database.configs.ssoRoleName!,
+        region: database.configs.region,
+      });
+      if (!result || !result.ok) {
+        commit('showResponse', { message: result?.error || 'SSO 连接失败' }, { root: true });
+        return;
+      }
+      // Persist credentials for subsequent AWS SDK v2 usage (sessionToken included)
+      database.configs.accessKeyId = result.credentials.accessKeyId;
+      database.configs.secretAccessKey = result.credentials.secretAccessKey;
+      database.configs.sessionToken = result.credentials.sessionToken;
+      database.configs.region = result.region;
+      database.createdAt = +new Date();
+      localStorage.setItem(`${database.name}-db`, JSON.stringify(database));
+      dispatch('getDbList');
+      dispatch('getCurrentDb', database.name, { root: true });
+      commit('setToDefault');
+      return;
+    } catch (err) {
+      commit('showResponse', err as any, { root: true });
+      return;
+    }
   }
   // In case of editing remove existing db first
   localStorage.removeItem(`${rootState.currentDb}-db`);

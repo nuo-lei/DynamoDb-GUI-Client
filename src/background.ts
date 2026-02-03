@@ -1,4 +1,4 @@
-import { app, protocol, BrowserWindow, shell, Menu } from 'electron';
+import { app, protocol, BrowserWindow, shell, Menu, ipcMain } from 'electron';
 import defaultMenu from 'electron-default-menu';
 import {
   createProtocol,
@@ -69,6 +69,36 @@ app.on('ready', async () => {
     await installVueDevtools();
   }
   createWindow();
+  // IPC: Handle SSO credential fetch and connectivity check in main process
+  ipcMain.handle('sso-connect', async (_event, params: {
+    ssoStartUrl: string;
+    ssoRegion: string;
+    ssoAccountId: string;
+    ssoRoleName: string;
+    region?: string;
+  }) => {
+    try {
+      // Use CommonJS build to avoid ESM parsing issues
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { fromSSO } = require('@aws-sdk/credential-provider-sso/dist-cjs/index.js');
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const DynamoDB = require('aws-sdk/clients/dynamodb');
+      const provider = fromSSO({
+        ssoStartUrl: params.ssoStartUrl,
+        ssoRegion: params.ssoRegion,
+        ssoAccountId: params.ssoAccountId,
+        ssoRoleName: params.ssoRoleName,
+      });
+      const credentials = await provider();
+      const connRegion = params.region || params.ssoRegion;
+      const db = new DynamoDB({ region: connRegion, credentials });
+      await db.listTables().promise();
+      return { ok: true, credentials, region: connRegion };
+    } catch (err) {
+      const message = (err && err.message) ? err.message : 'SSO 连接失败';
+      return { ok: false, error: message };
+    }
+  });
 });
 
 // Exit cleanly on request from parent process in development mode.
