@@ -108,10 +108,10 @@ function submitRemoteForm({
 }: ActionContext<DatabaseModuleState, RootState>) {
   if (state.submitForm.authMethod === 'sso') {
     // Region may not be known yet in SSO flow; defer endpoint construction
-    dispatch('setCredentials');
+    return dispatch('setCredentials');
   } else {
     commit('correctInputs', 'remote');
-    dispatch('setCredentials');
+    return dispatch('setCredentials');
   }
 }
 
@@ -120,7 +120,7 @@ function submitLocalForm({
   commit,
 }: ActionContext<DatabaseModuleState, RootState>) {
   commit('correctInputs', 'local');
-  dispatch('setCredentials');
+  return dispatch('setCredentials');
 }
 
 function getDbList({ commit }: ActionContext<DatabaseModuleState, RootState>) {

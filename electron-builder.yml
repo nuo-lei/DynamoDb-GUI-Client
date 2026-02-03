@@ -12,7 +12,7 @@ compression: normal
 mac:
   icon: "public/icon.icns"
   target:
-    - zip
+    - dmg
 linux:
   description: "DynamoDb GUI Client"
   target:

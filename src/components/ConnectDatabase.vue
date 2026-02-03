@@ -2,8 +2,8 @@
   el-col(:span="24")
     el-tabs(type="border-card" @tab-click="setToDefault")
       el-tab-pane(label="Remote")
-        el-tabs(type="card")
-          el-tab-pane(label="Access Keys")
+        el-tabs(type="card" v-model="remoteTab" @tab-click="onRemoteTabClick")
+          el-tab-pane(label="Access Keys" name="keys")
             el-form(:model="configs")
               el-form-item(label="Database Name (Optional)")
                 el-input(placeholder="Database display name" v-model="submitForm.name")
@@ -23,21 +23,27 @@
             ActionButtons(
               :cancelHandler="setToDefault"
               :confirmHandler="submitRemoteKeys"
+              :confirmLoading="isConnecting"
+              :confirmDisabled="isConnecting"
               :confirmText="'Connect'"
               :cancelText="'Clear'"
             )
-          el-tab-pane(label="SSO")
+          el-tab-pane(label="SSO" name="sso")
             el-form(:model="configs")
               el-form-item(label="Database Name (Optional)")
                 el-input(placeholder="Database display name" v-model="submitForm.name")
                   template(slot="append")
                     el-color-picker(v-model="submitForm.color" size="mini")
               el-form-item(label="SSO Profile" required)
-                template(v-if="ssoProfiles.length")
-                  el-select(v-model="submitForm.configs.ssoProfile" placeholder="Choose SSO Profile")
-                    el-option(v-for="(p, index) in ssoProfiles" :key="index" :label="profileLabel(p)" :value="p.name")
-                template(v-else)
-                  el-input(v-model="submitForm.configs.ssoProfile" placeholder="Profile name in ~/.aws/config")
+                el-select(
+                  v-model="submitForm.configs.ssoProfile"
+                  placeholder="选择 SSO Profile"
+                  :loading="ssoProfilesLoading"
+                  loading-text="加载中..."
+                  filterable
+                  :disabled="ssoProfilesLoading && !ssoProfiles.length"
+                )
+                  el-option(v-for="(p, index) in ssoProfiles" :key="index" :label="profileLabel(p)" :value="p.name")
               el-form-item(label="Profile Details" v-if="selectedProfile")
                 div
                   p 名称：{{ selectedProfile.name }}
@@ -48,6 +54,8 @@
             ActionButtons(
               :cancelHandler="setToDefault"
               :confirmHandler="submitRemoteSso"
+              :confirmLoading="isConnecting"
+              :confirmDisabled="isConnecting"
               :confirmText="'Connect'"
               :cancelText="'Clear'"
             )
@@ -61,7 +69,9 @@
             el-input(placeholder="Enter Endpoint" @keyup.enter.native="submitLocalForm" v-model="submitForm.configs.endpoint")
         ActionButtons(
           :cancelHandler="setToDefault"
-          :confirmHandler="submitLocalForm"
+          :confirmHandler="submitLocal"
+          :confirmLoading="isConnecting"
+          :confirmDisabled="isConnecting"
           :confirmText="'Connect'"
           :cancelText="'Clear'"
         )
@@ -81,6 +91,10 @@ const namespace: string = 'database';
 })
 export default class ConnectDatabase extends Vue {
   private inputType: string = 'password';
+  private remoteTab: string = 'keys';
+  private ssoProfilesLoading: boolean = false;
+  private ssoLoadStarted: boolean = false;
+  private isConnecting: boolean = false;
   @Prop(Function) private submitRemoteForm: any;
   @Prop(Function) private submitLocalForm: any;
   @Prop(Function) private setToDefault: any;
@@ -90,7 +104,10 @@ export default class ConnectDatabase extends Vue {
 
   private mounted() {
     this.setToDefault();
-    this.loadSsoProfiles();
+    const ipc = this.getIpc();
+    if (ipc && typeof ipc.send === 'function') {
+      ipc.send('write-log', 'renderer mounted; waiting SSO tab activation before loading profiles');
+    }
   }
   private showSecretKey() {
     if (this.inputType === 'password') {
@@ -99,13 +116,34 @@ export default class ConnectDatabase extends Vue {
       this.inputType = 'password';
     }
   }
-  private submitRemoteKeys() {
+  private async submitRemoteKeys() {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
     this.submitForm.authMethod = 'keys';
-    this.submitRemoteForm();
+    try {
+      await this.submitRemoteForm();
+    } finally {
+      this.isConnecting = false;
+    }
   }
-  private submitRemoteSso() {
+  private async submitRemoteSso() {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
     this.submitForm.authMethod = 'sso';
-    this.submitRemoteForm();
+    try {
+      await this.submitRemoteForm();
+    } finally {
+      this.isConnecting = false;
+    }
+  }
+  private async submitLocal() {
+    if (this.isConnecting) return;
+    this.isConnecting = true;
+    try {
+      await this.submitLocalForm();
+    } finally {
+      this.isConnecting = false;
+    }
   }
   private ssoProfiles: Array<{ name: string; region?: string; ssoStartUrl?: string; ssoRegion?: string; ssoAccountId?: string; ssoRoleName?: string; }> = [];
   private getIpc(): any {
@@ -123,15 +161,36 @@ export default class ConnectDatabase extends Vue {
     }
   }
   private async loadSsoProfiles() {
+    if (this.ssoProfilesLoading) return;
+    this.ssoLoadStarted = true;
+    this.ssoProfilesLoading = true;
     const ipc = this.getIpc();
     if (!ipc) return;
     try {
+      if (typeof ipc.send === 'function') ipc.send('write-log', 'loadSsoProfiles invoke start');
       const res = await ipc.invoke('sso-list-profiles');
       if (res && res.ok && Array.isArray(res.profiles)) {
         this.ssoProfiles = res.profiles;
+        if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles success count=${this.ssoProfiles.length}`);
+        this.ssoProfilesLoading = false;
+      } else {
+        if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles invalid response: ${JSON.stringify(res)}`);
+        this.ssoProfilesLoading = false;
+        setTimeout(() => this.loadSsoProfiles(), 2000);
       }
-    } catch {
-      // ignore
+    } catch (e) {
+      const err: any = e as any;
+      if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles error: ${(err && err.message) ? err.message : String(err)}`);
+      this.ssoProfilesLoading = false;
+      setTimeout(() => this.loadSsoProfiles(), 2000);
+    }
+  }
+  private onRemoteTabClick(tab: any) {
+    const name = (tab && (tab.name || tab.paneName)) || '';
+    if (name === 'sso' && !this.ssoLoadStarted) {
+      const ipc = this.getIpc();
+      if (ipc && typeof ipc.send === 'function') ipc.send('write-log', 'SSO tab activated; start loading profiles');
+      this.loadSsoProfiles();
     }
   }
   private profileLabel(p: any): string {
