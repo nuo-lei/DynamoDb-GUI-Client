@@ -166,13 +166,13 @@ app.on('ready', async () => {
       } catch (err) {
         const e: any = err;
         log(`sso-list-profiles error: ${e && e.message ? e.message : String(e)}`);
-        return { ok: false, error: (e && e.message) ? e.message : '无法读取 AWS 配置文件（~/.aws/config 或 ~/.aws/credentials）' };
+        return { ok: false, error: (e && e.message) ? e.message : 'Unable to read AWS config files (~/.aws/config or ~/.aws/credentials)' };
       }
     });
     ipcMain.handle('sso-connect-profile', async (_event: any, params: { profile: string; region?: string }) => {
       const profile = params.profile;
       log(`ipc sso-connect-profile invoked profile=${profile || '<empty>'}`);
-      if (!profile) return { ok: false, error: '请填写 SSO Profile 名称' };
+      if (!profile) return { ok: false, error: 'Please enter SSO Profile name' };
       try {
         await new Promise<void>((resolve, reject) => {
           const child = execFile('aws', ['sso', 'login', '--profile', profile], { env: getAwsEnv() }, (error: any) => {
@@ -185,7 +185,7 @@ app.on('ready', async () => {
         log('aws sso login finished');
       } catch (loginErr) {
         const e: any = loginErr;
-        const msg = (e && e.message) ? e.message : 'aws sso login 执行失败';
+        const msg = (e && e.message) ? e.message : 'aws sso login execution failed';
         log(`aws sso login error: ${msg}`);
         return { ok: false, error: msg };
       }
@@ -210,7 +210,7 @@ app.on('ready', async () => {
       } catch (err) {
         const e: any = err;
         log(`sso-connect-profile error: ${e && e.message ? e.message : String(e)}`);
-        return { ok: false, error: (e && e.message) ? e.message : 'SSO Profile 连接失败' };
+        return { ok: false, error: (e && e.message) ? e.message : 'SSO Profile connection failed' };
       }
     });
 

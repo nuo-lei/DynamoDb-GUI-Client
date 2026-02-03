@@ -37,20 +37,20 @@
               el-form-item(label="SSO Profile" required)
                 el-select(
                   v-model="submitForm.configs.ssoProfile"
-                  placeholder="选择 SSO Profile"
+                  placeholder="Select SSO Profile"
                   :loading="ssoProfilesLoading"
-                  loading-text="加载中..."
+                  loading-text="Loading..."
                   filterable
                   :disabled="ssoProfilesLoading && !ssoProfiles.length"
                 )
                   el-option(v-for="(p, index) in ssoProfiles" :key="index" :label="profileLabel(p)" :value="p.name")
               el-form-item(label="Profile Details" v-if="selectedProfile")
                 div
-                  p 名称：{{ selectedProfile.name }}
-                  p 区域：{{ selectedProfile.region || selectedProfile.ssoRegion || '-' }}
-                  p Start URL：{{ selectedProfile.ssoStartUrl || '-' }}
-                  p 账号：{{ selectedProfile.ssoAccountId || '-' }}
-                  p 权限集：{{ selectedProfile.ssoRoleName || '-' }}
+                  p Name: {{ selectedProfile.name }}
+                  p Region: {{ selectedProfile.region || selectedProfile.ssoRegion || '-' }}
+                  p Start URL: {{ selectedProfile.ssoStartUrl || '-' }}
+                  p Account: {{ selectedProfile.ssoAccountId || '-' }}
+                  p Permission Set: {{ selectedProfile.ssoRoleName || '-' }}
             ActionButtons(
               :cancelHandler="setToDefault"
               :confirmHandler="submitRemoteSso"

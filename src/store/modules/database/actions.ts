@@ -39,16 +39,16 @@ async function setCredentials({
     return;
   }
   // For SSO auth method, connection check via AWS SDK v2 is not implemented here.
-  // SSO 登录（基于 ~/.aws/config 的 profile）
+  // SSO login (profile-based from ~/.aws/config)
   if (database.authMethod === 'sso') {
     const ipcRenderer = getIpcRenderer();
     if (!ipcRenderer) {
-      commit('showResponse', { message: '请在 Electron 模式下执行 SSO 连接' }, { root: true });
+      commit('showResponse', { message: 'Please run SSO connect in Electron mode' }, { root: true });
       return;
     }
     const profile = database.configs.ssoProfile || '';
     if (!profile) {
-      commit('showResponse', { message: '请填写 SSO Profile 名称' }, { root: true });
+      commit('showResponse', { message: 'Please enter SSO Profile name' }, { root: true });
       return;
     }
     try {
@@ -57,7 +57,7 @@ async function setCredentials({
         region: database.configs.region || undefined,
       });
       if (!result || !result.ok) {
-        commit('showResponse', { message: result?.error || 'SSO 连接失败' }, { root: true });
+        commit('showResponse', { message: result?.error || 'SSO connection failed' }, { root: true });
         return;
       }
       database.configs.accessKeyId = result.credentials.accessKeyId;
