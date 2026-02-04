@@ -51,6 +51,15 @@
                   p Start URL: {{ selectedProfile.ssoStartUrl || '-' }}
                   p Account: {{ selectedProfile.ssoAccountId || '-' }}
                   p Permission Set: {{ selectedProfile.ssoRoleName || '-' }}
+              el-form-item(label="Actions" v-if="selectedProfile")
+                el-button(type="text" size="mini" @click="forceDeviceLogin") Force device login (show code)
+                el-button(type="text" size="mini" @click="clearSsoCacheForProfile") Clear SSO cache (profile)
+              el-form-item(label="Verification Code" v-if="deviceAuth && deviceAuth.userCode")
+                div
+                  p(style="font-size:18px;font-weight:600") {{ deviceAuth.userCode }}
+                  p
+                    | If the browser didn't open, 
+                    a(:href="deviceAuth.verificationUriComplete || deviceAuth.verificationUri" target="_blank") open verification page
             ActionButtons(
               :cancelHandler="setToDefault"
               :confirmHandler="submitRemoteSso"
@@ -82,8 +91,6 @@ import { Vue, Component, Prop } from 'vue-property-decorator';
 import { DbConfigs, SubmitForm } from '../store/modules/database/types';
 import ActionButtons from './ActionButtons.vue';
 
-const namespace: string = 'database';
-
 @Component({
   components: {
     ActionButtons,
@@ -95,6 +102,7 @@ export default class ConnectDatabase extends Vue {
   private ssoProfilesLoading: boolean = false;
   private ssoLoadStarted: boolean = false;
   private isConnecting: boolean = false;
+  private deviceAuth: any = null;
   @Prop(Function) private submitRemoteForm: any;
   @Prop(Function) private submitLocalForm: any;
   @Prop(Function) private setToDefault: any;
@@ -105,8 +113,25 @@ export default class ConnectDatabase extends Vue {
   private mounted() {
     this.setToDefault();
     const ipc = this.getIpc();
-    if (ipc && typeof ipc.send === 'function') {
-      ipc.send('write-log', 'renderer mounted; waiting SSO tab activation before loading profiles');
+    if (ipc && typeof ipc.on === 'function') {
+      try {
+        if (typeof ipc.removeAllListeners === 'function') {
+          ipc.removeAllListeners('sso-device-auth');
+        }
+      } catch {}
+      ipc.on('sso-device-auth', (_event: any, payload: any) => {
+        // Ensure reactivity when assigning from IPC payload
+        this.$set(this, 'deviceAuth', payload || null);
+        // Make sure we're on the SSO tab so the code is visible
+        this.remoteTab = 'sso';
+        console.log('[renderer] sso-device-auth received', payload);
+      });
+    }
+  }
+  private beforeDestroy() {
+    const ipc = this.getIpc();
+    if (ipc && typeof ipc.removeAllListeners === 'function') {
+      try { ipc.removeAllListeners('sso-device-auth'); } catch {}
     }
   }
   private showSecretKey() {
@@ -134,6 +159,45 @@ export default class ConnectDatabase extends Vue {
       await this.submitRemoteForm();
     } finally {
       this.isConnecting = false;
+      // clear code panel after attempt ends if we succeeded
+      // keep it if there was an error so user can retry
+    }
+  }
+  private async forceDeviceLogin() {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    try {
+      const name = (this.selectedProfile && this.selectedProfile.name)
+        || (this.submitForm && this.submitForm.configs && this.submitForm.configs.ssoProfile)
+        || '';
+      await ipc.invoke('sso-clear-cache', { profile: name });
+      await this.submitRemoteSso();
+    } catch (e) {
+      // swallow error; UI will surface through connect flow if needed
+    }
+  }
+  private async clearSsoCacheForProfile() {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    try {
+      const name = (this.selectedProfile && this.selectedProfile.name)
+        || (this.submitForm && this.submitForm.configs && this.submitForm.configs.ssoProfile)
+        || '';
+      await ipc.invoke('sso-clear-cache', { profile: name });
+      // keep code panel cleared until next auth
+      this.deviceAuth = null;
+    } catch (e) {
+      // ignore
+    }
+  }
+  private async clearSsoCacheAll() {
+    const ipc = this.getIpc();
+    if (!ipc) return;
+    try {
+      await ipc.invoke('sso-clear-cache', {});
+      this.deviceAuth = null;
+    } catch (e) {
+      // ignore
     }
   }
   private async submitLocal() {
@@ -167,20 +231,15 @@ export default class ConnectDatabase extends Vue {
     const ipc = this.getIpc();
     if (!ipc) return;
     try {
-      if (typeof ipc.send === 'function') ipc.send('write-log', 'loadSsoProfiles invoke start');
       const res = await ipc.invoke('sso-list-profiles');
       if (res && res.ok && Array.isArray(res.profiles)) {
         this.ssoProfiles = res.profiles;
-        if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles success count=${this.ssoProfiles.length}`);
         this.ssoProfilesLoading = false;
       } else {
-        if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles invalid response: ${JSON.stringify(res)}`);
         this.ssoProfilesLoading = false;
         setTimeout(() => this.loadSsoProfiles(), 2000);
       }
     } catch (e) {
-      const err: any = e as any;
-      if (typeof ipc.send === 'function') ipc.send('write-log', `loadSsoProfiles error: ${(err && err.message) ? err.message : String(err)}`);
       this.ssoProfilesLoading = false;
       setTimeout(() => this.loadSsoProfiles(), 2000);
     }
@@ -188,9 +247,10 @@ export default class ConnectDatabase extends Vue {
   private onRemoteTabClick(tab: any) {
     const name = (tab && (tab.name || tab.paneName)) || '';
     if (name === 'sso' && !this.ssoLoadStarted) {
-      const ipc = this.getIpc();
-      if (ipc && typeof ipc.send === 'function') ipc.send('write-log', 'SSO tab activated; start loading profiles');
       this.loadSsoProfiles();
+    }
+    if (name !== 'sso') {
+      this.deviceAuth = null;
     }
   }
   private profileLabel(p: any): string {
@@ -200,6 +260,14 @@ export default class ConnectDatabase extends Vue {
   private get selectedProfile(): any {
     const name = (this.submitForm && this.submitForm.configs && this.submitForm.configs.ssoProfile) || '';
     return this.ssoProfiles.find((p) => p.name === name) || null;
+  }
+  private get readableExpiry(): string {
+    if (!this.deviceAuth || !this.deviceAuth.expiresAt) return '';
+    const ms = this.deviceAuth.expiresAt - Date.now();
+    if (ms <= 0) return 'expired';
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    return `${mins}m ${secs}s`;
   }
 }
 </script>
@@ -218,5 +286,6 @@ export default class ConnectDatabase extends Vue {
 .el-form
   width 100%
   border-radius 2px
-  height 50vh
+  height 75vh
+  overflow auto
 </style>
