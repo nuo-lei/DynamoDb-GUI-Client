@@ -5556,6 +5556,11 @@ electron-publish@24.13.1:
     lazy-val "^1.0.5"
     mime "^2.5.2"
 
+electron-serve@^3.0.1:
+  version "3.0.1"
+  resolved "https://registry.yarnpkg.com/electron-serve/-/electron-serve-3.0.1.tgz#e63a94a02852e3549559ebd598e4e8393281c32c"
+  integrity sha512-o40R/CfuxT4ccpD3kK2enFghd2jgXSgI02l4p51f8f2clXC4GPKpi0JQUn1FSRGrIHWH8fjdPlRsznEyItDPLg==
+
 electron-store@^11.0.2:
   version "11.0.2"
   resolved "https://registry.yarnpkg.com/electron-store/-/electron-store-11.0.2.tgz#00a182c8a8cfa3816240273bb9aa5732de6063b8"

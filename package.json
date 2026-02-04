@@ -21,6 +21,7 @@
     "@aws-sdk/credential-providers": "^3.981.0",
     "aws-sdk": "^2.1450.0",
     "electron-default-menu": "^1.0.1",
+    "electron-serve": "^3.0.1",
     "electron-store": "^11.0.2",
     "element-ui": "^2.15.14",
     "ini": "^4.1.1",

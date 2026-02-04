@@ -1,17 +1,39 @@
 import { BrowserWindow, Menu, app, ipcMain, protocol, shell } from 'electron';
 import defaultMenu from 'electron-default-menu';
-import { createProtocol } from 'vue-cli-plugin-electron-builder/lib';
+import serve from 'electron-serve';
+import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { SsoIpcClient } from './main/ipc/SsoIpcClient';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+let loadURL: (win: BrowserWindow) => Promise<void>;
 
 const isDevelopment = process.env.NODE_ENV !== 'production';
 
+
 let win: BrowserWindow | null = null;
 
+// Register custom scheme before the app is ready (required by Electron)
 protocol.registerSchemesAsPrivileged([
   { scheme: 'app', privileges: { secure: true, standard: true } },
 ]);
 
-function createWindow() {
+// Initialize electron-serve before 'ready' to avoid late scheme registration
+// Determine correct directory to serve in production (handles both root and bundled layouts)
+const appPath = app.getAppPath();
+const candidates = [
+  appPath,
+  join(appPath, 'bundled'),
+  __dirname,
+  join(__dirname, 'bundled'),
+];
+const chosen = candidates.find((p) => existsSync(join(p, 'index.html')));
+loadURL = serve({ directory: chosen || __dirname, scheme: 'app' });
+
+async function createWindow() {
   win = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -29,8 +51,7 @@ function createWindow() {
       win.webContents.openDevTools();
     }
   } else {
-    createProtocol('app');
-    win.loadURL('app://./index.html');
+    await loadURL(win);
   }
 
   win.on('closed', () => {
@@ -42,7 +63,7 @@ app.on('ready', async () => {
   const menu = defaultMenu(app, shell);
   delete (menu as any)[2];
   Menu.setApplicationMenu(Menu.buildFromTemplate(menu));
-  createWindow();
+  await createWindow();
   // Register only the IPC handlers from SsoIpcClient.register()
   const ssoClient = new SsoIpcClient(ipcMain, app);
   ipcMain.handle('sso-list-profiles', ssoClient.handleListProfiles.bind(ssoClient));

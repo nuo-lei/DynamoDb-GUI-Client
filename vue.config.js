@@ -7,7 +7,7 @@ export default {
         try {
           config.output.set('module', true);
           config.merge({ experiments: { outputModule: true } });
-        } catch (e) {}
+        } catch (e) { }
       },
     },
   },
