@@ -1,9 +1,9 @@
+import { createDocumentClient, createDynamoDB } from './dynamoFactory';
 import { RootState } from './types';
-import { DynamoDB } from 'aws-sdk/clients/all';
 
 const state: RootState = {
-  dbInstance: new DynamoDB(),
-  dbClient: new DynamoDB.DocumentClient(),
+  dbInstance: createDynamoDB(),
+  dbClient: createDocumentClient(),
   currentTable: '',
   currentDb: '',
   tables: [],

@@ -1,10 +1,10 @@
 import { MutationTree } from 'vuex';
+import { createDocumentClient, createDynamoDB } from './dynamoFactory';
 import { RootState } from './types';
-import DynamoDB from 'aws-sdk/clients/dynamodb';
 
 function initialState(state: RootState) {
-  state.dbInstance = new DynamoDB();
-  state.dbClient = new DynamoDB.DocumentClient();
+  state.dbInstance = createDynamoDB();
+  state.dbClient = createDocumentClient();
   state.currentTable = '';
   state.currentDb = '';
   state.tables = [];
@@ -47,8 +47,8 @@ function notified(state: RootState) {
 function setDBInstances(state: RootState, name: any) {
   const databaseJson: any = localStorage.getItem(`${name}-db`);
   const database = JSON.parse(databaseJson);
-  state.dbInstance = new DynamoDB(database.configs);
-  state.dbClient = new DynamoDB.DocumentClient(database.configs);
+  state.dbInstance = createDynamoDB(database.configs);
+  state.dbClient = createDocumentClient(database.configs);
   state.currentDb = database.name;
   state.tables = [];
   state.currentTable = '';

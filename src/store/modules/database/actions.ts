@@ -1,5 +1,5 @@
+import { createDynamoDB } from '@/store/dynamoFactory';
 import { RootState } from '@/store/types';
-import DynamoDB from 'aws-sdk/clients/dynamodb';
 import { ActionContext, ActionTree } from 'vuex';
 import { DatabaseModuleState } from './types';
 // Access Electron's ipcRenderer safely without bundling 'electron' in web build
@@ -87,7 +87,7 @@ async function setCredentials({
     );
     return;
   }
-  const DB = new DynamoDB({ ...database.configs });
+  const DB = createDynamoDB({ ...database.configs });
   try {
     await DB.listTables().promise();
   } catch (err) {
